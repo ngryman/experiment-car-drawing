@@ -1,0 +1,33 @@
+body {
+    font-family: "Lucida Console", "Lucida Sans Typewriter", Monaco, "Bitstream Vera Sans Mono", monospace;
+}
+
+canvas, .panel {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    box-shadow: 0 0 4px 2px rgba(1, 1, 1, 0.4);
+}
+
+#scene {
+    margin-top: -200px;
+    margin-left: -320px;
+}
+
+.panel {
+    margin-top: -75px;
+    width: 255px;
+    height: 140px;
+}
+
+.panel p {
+    margin: 15px;
+}
+
+#controls {
+    margin-left: -580px;
+}
+
+#howto {
+    margin-left: 325px;
+}

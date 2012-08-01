@@ -15,25 +15,42 @@ window.requestAnimFrame = function() {
 
 const VS =
 	'attribute vec3 aVertexPosition;' +
+	'attribute vec3 aVertexNormal;' +
 	'attribute vec4 aVertexColor;' +
 
 	'uniform mat4 uMVMatrix;' +
 	'uniform mat4 uPMatrix;' +
+	'uniform mat3 uNMatrix;' +
+
+	'uniform vec3 uAmbientColor;' +
+	'uniform vec3 uLightingDirection;' +
+	'uniform vec3 uDirectionalColor;' +
+	'uniform bool uUseLighting;' +
 
 	'varying vec4 vColor;' +
+	'varying vec3 vLightWeighting;'+
 
 	'void main(void) {' +
-	'    gl_Position = uPMatrix * uMVMatrix * vec4(aVertexPosition, 1.0);' +
-	'    vColor = aVertexColor;' +
+	'   if (!uUseLighting) {' +
+	'       vLightWeighting = vec3(1.0, 1.0, 1.0);' +
+	'   } else {' +
+	'       vec3 transformedNormal = uNMatrix * aVertexNormal;' +
+	'       float directionalLightWeighting = max(dot(transformedNormal, uLightingDirection), 0.0);' +
+	'       vLightWeighting = uAmbientColor + uDirectionalColor * directionalLightWeighting;' +
+	'   }' +
+
+	'   gl_Position = uPMatrix * uMVMatrix * vec4(aVertexPosition, 1.0);' +
+	'   vColor = aVertexColor;' +
 	'}';
 
 const FS =
 	'precision mediump float;' +
 
 	'varying vec4 vColor;' +
+	'varying vec3 vLightWeighting;' +
 
 	'void main(void) {' +
-	'  gl_FragColor = vColor;' +
+	'  gl_FragColor = vec4(vColor.rbg * vLightWeighting, vColor.a);' +
 	'}';
 
 var canvas = document.getElementById('scene');
@@ -116,6 +133,8 @@ Mark.prototype.draw = function() {
 
 	gl.bindBuffer(gl.ARRAY_BUFFER, this.colorBuffer);
 	gl.vertexAttribPointer(shaderProgram.vertexColorAttribute, this.colorBuffer.itemSize, gl.FLOAT, false, 0, 0);
+
+	gl.uniform1i(shaderProgram.useLightingUniform, false);
 
 	gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.indexBuffer);
 	setMatrixUniforms(this.matrix);
@@ -218,6 +237,53 @@ Car.prototype.initVertices = function() {
 	this.vertexBuffer.itemSize = 3;
 	this.vertexBuffer.numItems = 24;
 
+	/** create normal buffer for car body */
+
+	this.normalBuffer = gl.createBuffer();
+	gl.bindBuffer(gl.ARRAY_BUFFER, this.normalBuffer);
+
+	var normals = [
+		// front face
+		0.0,  0.0,  1.0,
+		0.0,  0.0,  1.0,
+		0.0,  0.0,  1.0,
+		0.0,  0.0,  1.0,
+
+		// back face
+		0.0,  0.0, -1.0,
+		0.0,  0.0, -1.0,
+		0.0,  0.0, -1.0,
+		0.0,  0.0, -1.0,
+
+		// top face
+		0.0,  1.0,  0.0,
+		0.0,  1.0,  0.0,
+		0.0,  1.0,  0.0,
+		0.0,  1.0,  0.0,
+
+		// bottom face
+		0.0, -1.0,  0.0,
+		0.0, -1.0,  0.0,
+		0.0, -1.0,  0.0,
+		0.0, -1.0,  0.0,
+
+		// right face
+		1.0,  0.0,  0.0,
+		1.0,  0.0,  0.0,
+		1.0,  0.0,  0.0,
+		1.0,  0.0,  0.0,
+
+		// left face
+		-1.0,  0.0,  0.0,
+		-1.0,  0.0,  0.0,
+		-1.0,  0.0,  0.0,
+		-1.0,  0.0,  0.0
+	];
+
+	gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(normals), gl.STATIC_DRAW);
+	this.normalBuffer.itemSize = 3;
+	this.normalBuffer.numItems = 24;
+
 	/** create index buffer for car body */
 
 	this.indexBuffer = gl.createBuffer();
@@ -303,8 +369,16 @@ Car.prototype.draw = function() {
 	gl.bindBuffer(gl.ARRAY_BUFFER, this.vertexBuffer);
 	gl.vertexAttribPointer(shaderProgram.vertexPositionAttribute, this.vertexBuffer.itemSize, gl.FLOAT, false, 0, 0);
 
+	gl.bindBuffer(gl.ARRAY_BUFFER, this.normalBuffer);
+	gl.vertexAttribPointer(shaderProgram.vertexNormalAttribute, this.normalBuffer.itemSize, gl.FLOAT, false, 0, 0);
+
 	gl.bindBuffer(gl.ARRAY_BUFFER, this.colorBuffer);
 	gl.vertexAttribPointer(shaderProgram.vertexColorAttribute, this.colorBuffer.itemSize, gl.FLOAT, false, 0, 0);
+
+	gl.uniform1i(shaderProgram.useLightingUniform, true);
+	gl.uniform3fv(shaderProgram.ambientColorUniform, [0.6, 0.6, 0.6]);
+	gl.uniform3fv(shaderProgram.lightingDirectionUniform, [-0.25, -0.25, -1.0]);
+	gl.uniform3fv(shaderProgram.directionalColorUniform, [1.0, 1.0, 1.0]);
 
 	gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.indexBuffer);
 	setMatrixUniforms(this.matrix);
@@ -364,11 +438,20 @@ function initShaders() {
 	shaderProgram.vertexPositionAttribute = gl.getAttribLocation(shaderProgram, "aVertexPosition");
 	gl.enableVertexAttribArray(shaderProgram.vertexPositionAttribute);
 
+	shaderProgram.vertexNormalAttribute = gl.getAttribLocation(shaderProgram, "aVertexNormal");
+	gl.enableVertexAttribArray(shaderProgram.vertexNormalAttribute);
+
 	shaderProgram.vertexColorAttribute = gl.getAttribLocation(shaderProgram, "aVertexColor");
 	gl.enableVertexAttribArray(shaderProgram.vertexColorAttribute);
 
 	shaderProgram.pMatrixUniform = gl.getUniformLocation(shaderProgram, "uPMatrix");
 	shaderProgram.mvMatrixUniform = gl.getUniformLocation(shaderProgram, "uMVMatrix");
+	shaderProgram.nMatrixUniform = gl.getUniformLocation(shaderProgram, "uNMatrix");
+
+	shaderProgram.useLightingUniform = gl.getUniformLocation(shaderProgram, "uUseLighting");
+	shaderProgram.ambientColorUniform = gl.getUniformLocation(shaderProgram, "uAmbientColor");
+	shaderProgram.lightingDirectionUniform = gl.getUniformLocation(shaderProgram, "uLightingDirection");
+	shaderProgram.directionalColorUniform = gl.getUniformLocation(shaderProgram, "uDirectionalColor");
 }
 
 function initInput() {
@@ -418,6 +501,11 @@ function setMatrixUniforms(matrix) {
 
 	gl.uniformMatrix4fv(shaderProgram.pMatrixUniform, false, perspectiveMatrix);
 	gl.uniformMatrix4fv(shaderProgram.mvMatrixUniform, false, viewModelMatrix);
+
+	var normalMatrix = mat3.create();
+	mat4.toInverseMat3(viewModelMatrix, normalMatrix);
+	mat3.transpose(normalMatrix);
+	gl.uniformMatrix3fv(shaderProgram.nMatrixUniform, false, normalMatrix);
 }
 
 init();

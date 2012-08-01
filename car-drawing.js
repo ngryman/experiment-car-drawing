@@ -15,29 +15,30 @@ window.requestAnimFrame = function() {
 
 const VS =
 	'attribute vec3 aVertexPosition;' +
-		'attribute vec4 aVertexColor;' +
+	'attribute vec4 aVertexColor;' +
 
-		'uniform mat4 uMVMatrix;' +
-		'uniform mat4 uPMatrix;' +
+	'uniform mat4 uMVMatrix;' +
+	'uniform mat4 uPMatrix;' +
 
-		'varying vec4 vColor;' +
+	'varying vec4 vColor;' +
 
-		'void main(void) {' +
-		'    gl_Position = uPMatrix * uMVMatrix * vec4(aVertexPosition, 1.0);' +
-		'    vColor = aVertexColor;' +
-		'}';
+	'void main(void) {' +
+	'    gl_Position = uPMatrix * uMVMatrix * vec4(aVertexPosition, 1.0);' +
+	'    vColor = aVertexColor;' +
+	'}';
 
 const FS =
 	'precision mediump float;' +
 
-		'varying vec4 vColor;' +
+	'varying vec4 vColor;' +
 
-		'void main(void) {' +
-		'  gl_FragColor = vColor;' +
-		'}';
+	'void main(void) {' +
+	'  gl_FragColor = vColor;' +
+	'}';
 
 var canvas = document.getElementById('scene');
 var gl = canvas.getContext("webgl") || canvas.getContext("experimental-webgl");
+var keyboard = [];
 var vertexShader, fragmentShader, shaderProgram;
 var perspectiveMatrix = mat4.create(), viewMatrix = mat4.create();
 var car;
@@ -372,18 +373,26 @@ function initShaders() {
 
 function initInput() {
 	document.addEventListener('keydown', function(e) {
-		if (e.keyCode == 38 /* up */) {
-			car.accelerate(+1);
-		} else if (e.keyCode == 40 /* down */) {
-			car.accelerate(-1);
-		}
-
-		if (e.keyCode == 37 /* left */) {
-			car.brake(-1);
-		} else if (e.keyCode == 39 /* right */) {
-			car.brake(+1);
-		}
+		keyboard[e.keyCode] = true;
 	});
+
+	document.addEventListener('keyup', function(e) {
+		keyboard[e.keyCode] = false;
+	});
+}
+
+function handleInput() {
+	if (keyboard[38] /* up */) {
+		car.accelerate(+1);
+	} else if (keyboard[40] /* down */) {
+		car.accelerate(-1);
+	}
+
+	if (keyboard[37] /* left */) {
+		car.brake(-1);
+	} else if (keyboard[39] /* right */) {
+		car.brake(+1);
+	}
 }
 
 function update() {
@@ -413,6 +422,7 @@ function setMatrixUniforms(matrix) {
 
 init();
 window.requestAnimFrame(function drawScene() {
+	handleInput();
 	update();
 	draw();
 	window.requestAnimFrame(drawScene);
